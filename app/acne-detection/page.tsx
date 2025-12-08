@@ -11,7 +11,6 @@ export default function AcneDetectorPage() {
   const [detections, setDetections] = useState<any[]>([]);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const animationRef = useRef<number | null>(null);
 
   const startCamera = async () => {
     try {
@@ -38,9 +37,6 @@ export default function AcneDetectorPage() {
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
       }
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
     };
   }, [stream]);
 
@@ -51,64 +47,56 @@ export default function AcneDetectorPage() {
     setStream(null);
     setIsCameraActive(false);
     setDetections([]); // Reset detections saat kamera dimatikan
-    if (animationRef.current) {
-      cancelAnimationFrame(animationRef.current);
-    }
   };
 
-  const analyzeFrame = async () => {
-    if (!isCameraActive || !videoRef.current || !canvasRef.current) return;
-
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      // Clear canvas sebelum draw baru
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      // Mirror gambar karena video di-scale-x-[-1]
-      ctx.translate(canvas.width, 0);
-      ctx.scale(-1, 1);
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      ctx.resetTransform(); // Reset transform setelah draw
-    }
-
-    // Convert canvas ke blob dan kirim ke backend
-    canvas.toBlob(async (blob) => {
-      if (blob) {
-        const formData = new FormData();
-        formData.append('file', blob, 'frame.jpg');
-
-        try {
-          const response = await fetch('http://127.0.0.1:8000/predict/', {
-            method: 'POST',
-            body: formData,
-          });
-          if (!response.ok) {
-            throw new Error('Network response was not ok');
-          }
-          const data = await response.json();
-          const filteredDetections = (data.detections || []).filter((det: any) => parseFloat(det.confidence) > 0.5); // Filter conf > 0.5
-          setDetections(filteredDetections);
-          drawBoundingBoxes(filteredDetections, canvas.width, canvas.height);
-        } catch (err) {
-          console.error('Error predicting:', err);
-        }
+  const captureAndPredict = async () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        // Mirror gambar karena video di-scale-x-[-1]
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        ctx.resetTransform(); // Reset transform setelah draw
       }
-    }, 'image/jpeg', 0.9); // Kualitas 70% untuk balance kecepatan dan akurasi
 
-    // Schedule frame berikutnya, throttle ke ~5 FPS untuk real-time tapi tidak overload
-    setTimeout(() => {
-      animationRef.current = requestAnimationFrame(analyzeFrame);
-    }, 20); // 200ms delay untuk ~5 FPS, sesuaikan jika terlalu lambat
+      // Convert canvas ke blob
+      canvas.toBlob(async (blob) => {
+        if (blob) {
+          const formData = new FormData();
+          formData.append('file', blob, 'capture.jpg');
+
+          try {
+            const response = await fetch('http://127.0.0.1:8000/predict/', { // Ganti dengan URL backend jika deploy
+              method: 'POST',
+              body: formData,
+            });
+            if (!response.ok) {
+              throw new Error('Network response was not ok');
+            }
+            const data = await response.json();
+            setDetections(data.detections);
+            console.log('Detections:', data.detections);
+            // Draw bounding boxes (implement di bawah)
+            drawBoundingBoxes(data.detections, canvas.width, canvas.height);
+          } catch (err) {
+            console.error('Error predicting:', err);
+            alert('Gagal melakukan prediksi. Pastikan backend berjalan.');
+          }
+        }
+      }, 'image/jpeg');
+    }
   };
 
   const drawBoundingBoxes = (dets: any[], width: number, height: number) => {
     if (canvasRef.current) {
       const ctx = canvasRef.current.getContext('2d');
       if (ctx) {
+        // Clear previous drawings jika perlu, tapi karena kita overlay, mungkin redraw image dulu jika diperlukan
         dets.forEach(det => {
           const [centerX, centerY, bboxWidth, bboxHeight] = det.bbox;
           const x = centerX - bboxWidth / 2;
@@ -121,35 +109,17 @@ export default function AcneDetectorPage() {
           ctx.lineWidth = 2;
           ctx.strokeRect(adjustedX, y, bboxWidth, bboxHeight);
 
-          // Label dengan confidence dalam persen (seperti screenshot kedua)
-          const confPercent = (parseFloat(det.confidence) * 100).toFixed(0) + '%';
+          // Label
           ctx.font = '16px Arial';
           ctx.fillStyle = 'red';
-          ctx.fillText(`${det.class} (${confPercent})`, adjustedX, y - 5);
+          ctx.fillText(`${det.class} (${det.confidence})`, adjustedX, y - 5);
         });
       }
     }
   };
 
-  useEffect(() => {
-    if (isCameraActive) {
-      animationRef.current = requestAnimationFrame(analyzeFrame);
-    } else {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
-      if (canvasRef.current) {
-        const ctx = canvasRef.current.getContext('2d');
-        if (ctx) {
-          ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-        }
-      }
-      setDetections([]);
-    }
-  }, [isCameraActive]);
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex flex-col">
+    <div className="min-h-screen bg-linear-to-br from-blue-50 to-blue-100 flex flex-col">
       {/* Main Content */}
       <main className="container mx-auto px-4 md:px-6 py-8 md:py-16 grow flex flex-col items-center">
         {/* Hero Section */}
@@ -201,7 +171,7 @@ export default function AcneDetectorPage() {
         {isCameraActive && (
           <section className="w-full max-w-5xl mx-auto mb-16 animate-in fade-in zoom-in duration-500">
             <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl shadow-[#98bad5]/20 overflow-hidden mx-auto relative ring-1 ring-[#98bad5]/30">
-              <div className="relative bg-slate-900 aspect-[3/4] md:aspect-video group">
+              <div className="relative bg-slate-900 aspect-3/4 md:aspect-video group">
                 <video
                   ref={videoRef}
                   autoPlay
@@ -257,6 +227,15 @@ export default function AcneDetectorPage() {
             </div>
             
             <div className="mt-8 text-center animate-in fade-in slide-in-from-top-4 duration-700 delay-200">
+              <button 
+                onClick={captureAndPredict}
+                className="bg-[#98bad5] hover:bg-[#86a8c3] text-white font-semibold py-3 px-8 rounded-full shadow-xl transition-all duration-300 transform hover:-translate-y-1 flex items-center justify-center gap-3 mx-auto mb-4"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                </svg>
+                <span>Analisis Jerawat</span>
+              </button>
               <button onClick={stopCamera} className="text-slate-400 hover:text-red-500 text-sm font-medium transition-colors flex items-center justify-center gap-2 mx-auto">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
@@ -265,15 +244,14 @@ export default function AcneDetectorPage() {
               </button>
             </div>
 
-            {/* Tampilkan Hasil Deteksi (seperti screenshot kedua) */}
+            {/* Tampilkan Hasil Deteksi (opsional, sebagai teks summary) */}
             {detections.length > 0 && (
               <div className="mt-6 p-4 bg-white/80 rounded-xl shadow-md w-full max-w-md">
                 <h3 className="text-lg font-bold mb-2">Hasil Deteksi:</h3>
-                <p className="text-sm font-medium mb-2">{detections.length} objects detected</p>
                 <ul>
                   {detections.map((det, index) => (
                     <li key={index} className="text-sm">
-                      {det.class} - Confidence: {(parseFloat(det.confidence) * 100).toFixed(0)}%
+                      {det.class} - Confidence: {det.confidence}
                     </li>
                   ))}
                 </ul>
