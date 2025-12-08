@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client'
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -6,7 +8,10 @@ export default function AcneDetectorPage() {
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const [detections, setDetections] = useState<any[]>([]);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const animationRef = useRef<number | null>(null);
 
   const startCamera = async () => {
     try {
@@ -33,6 +38,9 @@ export default function AcneDetectorPage() {
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
       }
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
     };
   }, [stream]);
 
@@ -42,7 +50,103 @@ export default function AcneDetectorPage() {
     }
     setStream(null);
     setIsCameraActive(false);
+    setDetections([]); // Reset detections saat kamera dimatikan
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
+    }
   };
+
+  const analyzeFrame = async () => {
+    if (!isCameraActive || !videoRef.current || !canvasRef.current) return;
+
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      // Clear canvas sebelum draw baru
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Mirror gambar karena video di-scale-x-[-1]
+      ctx.translate(canvas.width, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      ctx.resetTransform(); // Reset transform setelah draw
+    }
+
+    // Convert canvas ke blob dan kirim ke backend
+    canvas.toBlob(async (blob) => {
+      if (blob) {
+        const formData = new FormData();
+        formData.append('file', blob, 'frame.jpg');
+
+        try {
+          const response = await fetch('http://127.0.0.1:8000/predict/', {
+            method: 'POST',
+            body: formData,
+          });
+          if (!response.ok) {
+            throw new Error('Network response was not ok');
+          }
+          const data = await response.json();
+          const filteredDetections = (data.detections || []).filter((det: any) => parseFloat(det.confidence) > 0.5); // Filter conf > 0.5
+          setDetections(filteredDetections);
+          drawBoundingBoxes(filteredDetections, canvas.width, canvas.height);
+        } catch (err) {
+          console.error('Error predicting:', err);
+        }
+      }
+    }, 'image/jpeg', 0.9); // Kualitas 70% untuk balance kecepatan dan akurasi
+
+    // Schedule frame berikutnya, throttle ke ~5 FPS untuk real-time tapi tidak overload
+    setTimeout(() => {
+      animationRef.current = requestAnimationFrame(analyzeFrame);
+    }, 20); // 200ms delay untuk ~5 FPS, sesuaikan jika terlalu lambat
+  };
+
+  const drawBoundingBoxes = (dets: any[], width: number, height: number) => {
+    if (canvasRef.current) {
+      const ctx = canvasRef.current.getContext('2d');
+      if (ctx) {
+        dets.forEach(det => {
+          const [centerX, centerY, bboxWidth, bboxHeight] = det.bbox;
+          const x = centerX - bboxWidth / 2;
+          const y = centerY - bboxHeight / 2;
+
+          // Karena video mirrored, sesuaikan x untuk overlay
+          const adjustedX = width - (x + bboxWidth); // Mirror back
+
+          ctx.strokeStyle = 'red';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(adjustedX, y, bboxWidth, bboxHeight);
+
+          // Label dengan confidence dalam persen (seperti screenshot kedua)
+          const confPercent = (parseFloat(det.confidence) * 100).toFixed(0) + '%';
+          ctx.font = '16px Arial';
+          ctx.fillStyle = 'red';
+          ctx.fillText(`${det.class} (${confPercent})`, adjustedX, y - 5);
+        });
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (isCameraActive) {
+      animationRef.current = requestAnimationFrame(analyzeFrame);
+    } else {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+      if (canvasRef.current) {
+        const ctx = canvasRef.current.getContext('2d');
+        if (ctx) {
+          ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+        }
+      }
+      setDetections([]);
+    }
+  }, [isCameraActive]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex flex-col">
@@ -104,6 +208,11 @@ export default function AcneDetectorPage() {
                   playsInline
                   className="w-full h-full object-cover transform scale-x-[-1] opacity-90"
                 />
+                {/* Canvas untuk overlay bounding boxes */}
+                <canvas
+                  ref={canvasRef}
+                  className="absolute top-0 left-0 w-full h-full pointer-events-none"
+                />
                 
                 {/* Close Button */}
                 <button 
@@ -148,13 +257,28 @@ export default function AcneDetectorPage() {
             </div>
             
             <div className="mt-8 text-center animate-in fade-in slide-in-from-top-4 duration-700 delay-200">
-               <button onClick={stopCamera} className="text-slate-400 hover:text-red-500 text-sm font-medium transition-colors flex items-center justify-center gap-2 mx-auto">
+              <button onClick={stopCamera} className="text-slate-400 hover:text-red-500 text-sm font-medium transition-colors flex items-center justify-center gap-2 mx-auto">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                 </svg>
                 Batalkan Analisis
-               </button>
+              </button>
             </div>
+
+            {/* Tampilkan Hasil Deteksi (seperti screenshot kedua) */}
+            {detections.length > 0 && (
+              <div className="mt-6 p-4 bg-white/80 rounded-xl shadow-md w-full max-w-md">
+                <h3 className="text-lg font-bold mb-2">Hasil Deteksi:</h3>
+                <p className="text-sm font-medium mb-2">{detections.length} objects detected</p>
+                <ul>
+                  {detections.map((det, index) => (
+                    <li key={index} className="text-sm">
+                      {det.class} - Confidence: {(parseFloat(det.confidence) * 100).toFixed(0)}%
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </section>
         )}
 
