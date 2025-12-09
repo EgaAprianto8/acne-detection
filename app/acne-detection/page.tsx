@@ -1,5 +1,5 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
+
 'use client'
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -11,11 +11,12 @@ export default function AcneDetectorPage() {
   const [detections, setDetections] = useState<any[]>([]);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const startCamera = async () => {
     try {
       const mediaStream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'user' } 
+        video: { facingMode: 'user', aspectRatio: 1, width: {ideal: 640}, height: {ideal: 640} } 
       });
       setStream(mediaStream);
       setIsCameraActive(true);
@@ -52,26 +53,45 @@ export default function AcneDetectorPage() {
   const captureAndPredict = async () => {
     if (videoRef.current && canvasRef.current) {
       const video = videoRef.current;
-      const canvas = canvasRef.current;
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        // Mirror gambar karena video di-scale-x-[-1]
-        ctx.translate(canvas.width, 0);
-        ctx.scale(-1, 1);
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        ctx.resetTransform(); // Reset transform setelah draw
+      const vw = video.videoWidth;
+      const vh = video.videoHeight;
+      const inputSize = 640;
+
+      // Create flip canvas to mirror the image
+      const flipCanvas = document.createElement('canvas');
+      flipCanvas.width = vw;
+      flipCanvas.height = vh;
+      const fctx = flipCanvas.getContext('2d');
+      if (fctx) {
+        fctx.translate(vw, 0);
+        fctx.scale(-1, 1);
+        fctx.drawImage(video, 0, 0, vw, vh);
       }
 
-      // Convert canvas ke blob
-      canvas.toBlob(async (blob) => {
+      // Create model input canvas with padding to avoid distortion
+      const modelCanvas = document.createElement('canvas');
+      modelCanvas.width = inputSize;
+      modelCanvas.height = inputSize;
+      const mctx = modelCanvas.getContext('2d');
+      if (mctx) {
+        const scale = Math.min(inputSize / vw, inputSize / vh);
+        const dw = vw * scale;
+        const dh = vh * scale;
+        const dx = (inputSize - dw) / 2;
+        const dy = (inputSize - dh) / 2;
+        mctx.fillStyle = '#1E293B'; // Match bg-slate-900
+        mctx.fillRect(0, 0, inputSize, inputSize);
+        mctx.drawImage(flipCanvas, dx, dy, dw, dh);
+      }
+
+      // Convert modelCanvas to blob
+      modelCanvas.toBlob(async (blob) => {
         if (blob) {
           const formData = new FormData();
           formData.append('file', blob, 'capture.jpg');
 
           try {
-            const response = await fetch('http://127.0.0.1:8000/predict/', { // Ganti dengan URL backend jika deploy
+            const response = await fetch('http://127.0.0.1:8000/predict/', {
               method: 'POST',
               body: formData,
             });
@@ -81,8 +101,8 @@ export default function AcneDetectorPage() {
             const data = await response.json();
             setDetections(data.detections);
             console.log('Detections:', data.detections);
-            // Draw bounding boxes (implement di bawah)
-            drawBoundingBoxes(data.detections, canvas.width, canvas.height);
+            // Draw bounding boxes
+            drawBoundingBoxes(data.detections, inputSize, inputSize);
           } catch (err) {
             console.error('Error predicting:', err);
             alert('Gagal melakukan prediksi. Pastikan backend berjalan.');
@@ -96,23 +116,21 @@ export default function AcneDetectorPage() {
     if (canvasRef.current) {
       const ctx = canvasRef.current.getContext('2d');
       if (ctx) {
-        // Clear previous drawings jika perlu, tapi karena kita overlay, mungkin redraw image dulu jika diperlukan
+        ctx.clearRect(0, 0, width, height); // Clear canvas for overlay only
         dets.forEach(det => {
           const [centerX, centerY, bboxWidth, bboxHeight] = det.bbox;
           const x = centerX - bboxWidth / 2;
           const y = centerY - bboxHeight / 2;
 
-          // Karena video mirrored, sesuaikan x untuk overlay
-          const adjustedX = width - (x + bboxWidth); // Mirror back
-
+          // No need for adjustment since input was already mirrored
           ctx.strokeStyle = 'red';
           ctx.lineWidth = 2;
-          ctx.strokeRect(adjustedX, y, bboxWidth, bboxHeight);
+          ctx.strokeRect(x, y, bboxWidth, bboxHeight);
 
           // Label
           ctx.font = '16px Arial';
           ctx.fillStyle = 'red';
-          ctx.fillText(`${det.class} (${det.confidence})`, adjustedX, y - 5);
+          ctx.fillText(`${det.class} (${det.confidence})`, x, y - 5);
         });
       }
     }
@@ -171,17 +189,19 @@ export default function AcneDetectorPage() {
         {isCameraActive && (
           <section className="w-full max-w-5xl mx-auto mb-16 animate-in fade-in zoom-in duration-500">
             <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl shadow-[#98bad5]/20 overflow-hidden mx-auto relative ring-1 ring-[#98bad5]/30">
-              <div className="relative bg-slate-900 aspect-3/4 md:aspect-video group">
+              <div ref={containerRef} className="relative bg-slate-900 aspect-square max-w-[640px] mx-auto group">
                 <video
                   ref={videoRef}
                   autoPlay
                   playsInline
-                  className="w-full h-full object-cover transform scale-x-[-1] opacity-90"
+                  className="absolute top-0 left-0 w-full h-full object-contain transform scale-x-[-1] opacity-90"
                 />
                 {/* Canvas untuk overlay bounding boxes */}
                 <canvas
                   ref={canvasRef}
                   className="absolute top-0 left-0 w-full h-full pointer-events-none"
+                  width={640}
+                  height={640}
                 />
                 
                 {/* Close Button */}
@@ -248,6 +268,7 @@ export default function AcneDetectorPage() {
             {detections.length > 0 && (
               <div className="mt-6 p-4 bg-white/80 rounded-xl shadow-md w-full max-w-md">
                 <h3 className="text-lg font-bold mb-2">Hasil Deteksi:</h3>
+                <p>Terdeteksi {detections.length} jerawat.</p>
                 <ul>
                   {detections.map((det, index) => (
                     <li key={index} className="text-sm">
