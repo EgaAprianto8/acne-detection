@@ -1,5 +1,3 @@
-// CameraView.tsx
-
 import React, { RefObject } from 'react';
 
 interface CameraViewProps {
@@ -18,9 +16,14 @@ export default function CameraView({
     isAnalyzing,
 }: CameraViewProps) {
     return (
-        <section className="w-full max-w-5xl mx-auto mb-16 animate-in fade-in zoom-in duration-500">
+        // [PERUBAHAN UTAMA 1]: Mengurangi lebar maksimum container utama
+        // dari max-w-5xl (maksimal 64rem) menjadi max-w-3xl (maksimal 48rem)
+        // agar kamera tidak terlalu besar di layar yang lebar.
+        <section className="w-full max-w-3xl mx-auto mb-16 animate-in fade-in zoom-in duration-500">
             <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl shadow-[#98bad5]/20 overflow-hidden mx-auto relative ring-1 ring-[#98bad5]/30">
-               {/* UBAH ASPECT RATIO DARI aspect-3/4 atau aspect-video MENJADI aspect-square (1:1) */}
+               {/* [PERUBAHAN UTAMA 2]: Mengubah aspect-video atau aspect-3/4 
+                   MENJADI aspect-square (1:1) seperti yang disarankan dalam komentar 
+                   untuk membuat kotak kamera menjadi persegi dan lebih kecil secara vertikal. */}
                 <div className="relative bg-slate-900 aspect-square group">
                     <video 
                         ref={videoRef} 
