@@ -7,7 +7,7 @@ import { ScanFace, ArrowRight, Sparkles, CheckCircle2 } from 'lucide-react';
 
 export default function TrySection() {
   return (
-    <section className="py-20 md:py-28 bg-white relative overflow-hidden">
+    <section id="try" className="py-20 md:py-28 bg-white relative overflow-hidden">
       
       {/* Background Decorative Elements */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
@@ -113,7 +113,7 @@ export default function TrySection() {
               <div className="absolute inset-0 border-2 border-dashed border-white/30 rounded-full animate-[spin_10s_linear_infinite] w-[200px] h-[200px] md:w-[240px] md:h-[240px] -translate-x-1/2 -translate-y-1/2 top-1/2 left-1/2 pointer-events-none"></div>
               
               <Link 
-                href="/acne-detector" 
+                href="/acne-detection" 
                 className="relative z-10 flex flex-col items-center justify-center w-40 h-40 md:w-48 md:h-48 bg-white text-[#98bad5] rounded-full shadow-[0_0_40px_rgba(255,255,255,0.3)] hover:scale-105 active:scale-95 transition-all duration-300 group-hover:shadow-[0_0_60px_rgba(255,255,255,0.5)]"
               >
                 <ScanFace size={48} className="mb-2 group-hover:rotate-12 transition-transform duration-300" strokeWidth={1.5} />

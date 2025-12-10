@@ -104,7 +104,7 @@ export default function Hero() {
           >
             {/* Tombol Utama */}
             <Link 
-              href="/acne-detector" 
+              href="/acne-detection" 
               className="group relative px-8 py-3.5 md:py-4 rounded-full bg-[#98bad5] text-white font-bold text-base md:text-lg shadow-lg shadow-sky-200/50 flex items-center justify-center overflow-hidden hover:scale-105 transition-transform duration-300 active:scale-95"
             >
               <ScanEye className="mr-2 w-5 h-5" />

@@ -25,6 +25,51 @@ model.model.eval()  # Set ke mode evaluasi (opsional, tapi baik untuk inference)
 # Catatan: Jika model trained dengan multiple classes, ambil dari model.names
 class_names = model.names if hasattr(model, 'names') else ["acne"]  # Otomatis ambil dari model jika available
 
+# --- LOGIKA SARAN BERDASARKAN RISET ---
+def get_acne_advice(count):
+    """
+    Memberikan saran kesehatan kulit berdasarkan jumlah jerawat yang terdeteksi.
+    Level keparahan diadaptasi dari klasifikasi umum (Mild, Moderate, Severe).
+    """
+    if count == 0:
+        return {
+            "status": "Kulit Sehat (Clear Skin) ✨",
+            "title": "Pertahankan Glow-mu!",
+            "message": "Wajahmu bersih! Tetap jaga hidrasi, pakai sunscreen setiap hari, dan jangan lupa double cleansing setelah beraktivitas."
+        }
+    
+    elif count <= 5:
+        # Mild Acne: Biasanya dipicu pori tersumbat ringan atau makanan
+        return {
+            "status": "Ringan (Mild) 🌱",
+            "title": "Perhatikan Pola Makan",
+            "message": "Jerawat masih sedikit. Coba kurangi makanan berminyak (gorengan) & gula tinggi. Pastikan sarung bantal diganti seminggu sekali."
+        }
+    
+    elif count <= 10:
+        # Mild to Moderate: Kemungkinan faktor lifestyle (kurang tidur/stress)
+        return {
+            "status": "Sedang (Moderate) ⚠️",
+            "title": "Kurangi Begadang & Stress",
+            "message": "Kulitmu butuh istirahat. Kurangi begadang agar hormon stabil. Gunakan basic skincare (Facewash, Moisturizer, Sunscreen) yang gentle."
+        }
+    
+    elif count <= 20:
+        # Moderate: Perlu penanganan aktif (skincare ingredients)
+        return {
+            "status": "Breakout Alert 🚨",
+            "title": "Fokus Skincare Aktif",
+            "message": "Jerawat cukup banyak. Coba skincare dengan Salicylic Acid atau Benzoyl Peroxide. Hindari memencet jerawat agar tidak berbekas!"
+        }
+    
+    else:
+        # Severe: Di atas 20 titik biasanya butuh bantuan medis
+        return {
+            "status": "Perlu Perhatian Khusus 🚑",
+            "title": "Konsultasi ke Dokter",
+            "message": "Kondisi ini mungkin butuh penanganan medis. Disarankan konsultasi ke Dermatologist (SpKK) untuk mencegah peradangan lebih lanjut."
+        }
+
 # Endpoint Prediksi
 @app.post("/predict/")
 async def predict(file: UploadFile = File(...)):
@@ -47,11 +92,21 @@ async def predict(file: UploadFile = File(...)):
                 "confidence": f"{conf:.4f}",
                 "bbox": bbox
             })
+    total_acne = len(detections)
     
+    # Panggil fungsi advice di sini
+    advice = get_acne_advice(total_acne)
+
     return {
         "filename": file.filename,
+        "num_detections": total_acne,
         "detections": detections,
-        "num_detections": len(detections)
+        # Data saran dikirim ke frontend
+        "analysis_result": {
+            "status": advice["status"],
+            "title": advice["title"],
+            "advice": advice["message"]
+        }
     }
 
 # Endpoint Root (untuk test)

@@ -11,7 +11,7 @@ import Footer from './components/Footer';
 export default function Home() {
   return (
     <main className="bg-white text-gray-800">
-      <Navbar />
+      {/* <Navbar /> */}
       <Hero />
       <HowItWorks />
       <TrySection />
