@@ -59,7 +59,7 @@ export default function Disclaimer() {
               {/* Footer kecil (opsional) */}
               <div className="mt-4 flex items-center gap-2 text-xs text-gray-400 font-medium">
                 <Info size={14} />
-                <span>AI Accuracy Disclaimer: Model YOLOv11 Beta</span>
+                <span>AI Accuracy Disclaimer: Model YOLO11 Beta</span>
               </div>
             </div>
 

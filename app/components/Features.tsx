@@ -11,7 +11,7 @@ import featureAnimationJson from "../../public/animations/data-security.json";
 const features = [
   {
     title: 'Akurasi Tinggi',
-    desc: 'Didukung oleh model YOLOv11 terbaru yang dilatih khusus untuk deteksi kulit.',
+    desc: 'Didukung oleh model YOLO11 terbaru yang dilatih khusus untuk deteksi kulit.',
     icon: Target,
     color: 'bg-rose-100 text-rose-600',
   },

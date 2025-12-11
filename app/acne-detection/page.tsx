@@ -370,10 +370,10 @@ export default function AcneDetectorPage() {
             <div className="absolute top-0 right-0 -mt-20 -mr-20 w-80 h-80 bg-white/20 rounded-full blur-3xl transition-transform duration-1000 group-hover:scale-110"></div>
             <div className="absolute bottom-0 left-0 -mb-20 -ml-20 w-80 h-80 bg-slate-900/10 rounded-full blur-3xl transition-transform duration-1000 group-hover:scale-110"></div>
             <div className="relative z-10">
-                <h2 className="text-2xl md:text-4xl font-black text-center mb-10 tracking-tight">Ditenagai <span className="text-white drop-shadow-md">YOLOv11L</span>: <br className="md:hidden" /> Analisis Super Cepat</h2>
+                <h2 className="text-2xl md:text-4xl font-black text-center mb-10 tracking-tight">Ditenagai <span className="text-white drop-shadow-md">YOLO11</span>: <br className="md:hidden" /> Analisis Super Cepat</h2>
                 <div className="grid md:grid-cols-2 gap-10 md:gap-16 items-center">
                     <div className="space-y-6">
-                      <p className="text-blue-50 text-lg leading-relaxed font-light">Menggabungkan performa <span className="font-semibold text-white">YOLOv11L</span> yang legendaris dengan optimasi Edge Computing untuk hasil instan tanpa lag.</p>
+                      <p className="text-blue-50 text-lg leading-relaxed font-light">Menggabungkan performa <span className="font-semibold text-white">YOLO11</span> yang legendaris dengan optimasi Edge Computing untuk hasil instan tanpa lag.</p>
                       <div className="space-y-4">
                         <div className="flex items-center gap-5 p-4 bg-white/10 rounded-2xl backdrop-blur-sm border border-white/10 hover:bg-white/20 transition-all duration-300 hover:scale-[1.02] cursor-default group/item">
                           <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center shrink-0 group-hover/item:rotate-12 transition-transform duration-300"><svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg></div>
