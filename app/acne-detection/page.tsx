@@ -27,7 +27,8 @@ export default function AcneDetectorPage() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   // Refs untuk Camera/Live Mode
-  const videoRef = useRef<HTMLVideoElement>(null);
+  // Perlu diingat untuk mengatasi error TypeScript 2322, tipe ini di komponen anak harus diizinkan null.
+  const videoRef = useRef<HTMLVideoElement>(null); 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
   // Refs untuk Upload Mode
@@ -36,10 +37,10 @@ export default function AcneDetectorPage() {
   const imageRef = useRef<HTMLImageElement>(null);
   const uploadCanvasRef = useRef<HTMLCanvasElement>(null);
 
-  // Ref untuk Auto Scroll (TETAP DIPERTAHANKAN karena digunakan oleh ResultCard)
+  // Ref untuk Auto Scroll
   const resultRef = useRef<HTMLDivElement>(null); 
   
-  // FITUR AUTO-SCROLL DIHAPUS/DINONAKTIFKAN
+  // Fitur auto-scroll ke hasil dihilangkan sesuai permintaan user sebelumnya
   /*
   useEffect(() => {
     if (result && resultRef.current) {
@@ -120,32 +121,34 @@ export default function AcneDetectorPage() {
   
   // --- Fungsi Bounding Box & Prediksi ---
 
-  const drawBoundingBoxes = (dets: any[], width: number, height: number) => {
+const drawBoundingBoxes = (dets: any[], width: number, height: number) => {
     if (canvasRef.current) {
-      const ctx = canvasRef.current.getContext('2d');
-      if (ctx) {
-        ctx.clearRect(0, 0, width, height); 
-        dets.forEach(det => {
-          const [centerX, centerY, bboxWidth, bboxHeight] = det.bbox;
-          
-          // Hitung titik awal (x, y)
-          const x = centerX - bboxWidth / 2;
-          const y = centerY - bboxHeight / 2;
-          
-          // PERBAIKAN: Menghapus logika mirroring yang menyebabkan kotak terbalik
-          const adjustedX = x; 
-          
-          ctx.strokeStyle = '#ef4444'; 
-          ctx.lineWidth = 3;
-          ctx.strokeRect(adjustedX, y, bboxWidth, bboxHeight);
-          
-          ctx.font = 'bold 16px Inter, sans-serif';
-          ctx.fillStyle = '#ef4444';
-          ctx.fillText(`${det.class} (${det.confidence})`, adjustedX, y - 5);
-        });
-      }
+        const ctx = canvasRef.current.getContext('2d');
+        if (ctx) {
+            ctx.clearRect(0, 0, width, height); 
+            dets.forEach(det => {
+                const [centerX, centerY, bboxWidth, bboxHeight] = det.bbox;
+                
+                // Hitung titik awal (x, y)
+                const x = centerX - bboxWidth / 2;
+                const y = centerY - bboxHeight / 2;
+                
+                // [PERBAIKAN 2] Gunakan koordinat x apa adanya (karena gambar yang dikirim sudah di-mirror)
+                const adjustedX = x; 
+                
+                ctx.strokeStyle = '#ef4444'; 
+                // UBAH: Ketebalan garis (Line Width) dari 3 menjadi 2
+                ctx.lineWidth = 2; 
+                ctx.strokeRect(adjustedX, y, bboxWidth, bboxHeight);
+                
+                // UBAH: Ukuran Font dari 16px menjadi 14px
+                ctx.font = 'bold 14px Inter, sans-serif'; 
+                ctx.fillStyle = '#ef4444';
+                ctx.fillText(`${det.class} (${det.confidence})`, adjustedX, y - 5);
+            });
+        }
     }
-  };
+};
 
   const drawStaticBoundingBoxes = (dets: any[], width: number, height: number) => {
       if (uploadCanvasRef.current) {
@@ -213,14 +216,31 @@ export default function AcneDetectorPage() {
     if (videoRef.current && canvasRef.current) {
       const video = videoRef.current;
       const canvas = canvasRef.current;
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      
+      // [PERBAIKAN 1]: Tentukan ukuran terkecil untuk membuat Center Crop 1:1
+      const size = Math.min(video.videoWidth, video.videoHeight);
+      canvas.width = size;
+      canvas.height = size; 
+
       const ctx = canvas.getContext('2d');
       if (ctx) {
-        // Logika cermin untuk kamera (memastikan gambar yang dikirim ke AI orientasinya benar)
+        // Hitung offset untuk memposisikan pemotongan di tengah
+        const xOffset = (video.videoWidth - size) / 2;
+        const yOffset = (video.videoHeight - size) / 2;
+        
+        // Logika cermin untuk gambar yang akan dikirim ke AI
         ctx.translate(canvas.width, 0);
         ctx.scale(-1, 1);
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        // Menggunakan drawImage untuk memotong dan menggambar 1:1
+        ctx.drawImage(
+          video, 
+          xOffset, yOffset, // Koordinat & ukuran potong sumber
+          size, size,        
+          0, 0,              // Koordinat & ukuran di kanvas tujuan
+          size, size         
+        );
+        
         ctx.resetTransform(); 
       }
 
